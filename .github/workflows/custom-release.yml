@@ -1,0 +1,76 @@
+name: release
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+-patch'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure Go Version
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Set up environment
+        run: |
+            make release
+            sudo apt-get install ruby-dev build-essential && sudo gem i fpm -f
+
+      - name: Build sgroups deb & rpm package
+        run: |
+            for PACKAGE_TYPE in deb rpm
+            do
+                fpm \
+                -n "${PACKAGE}" \
+                -s dir \
+                -a "${ARCH}" \
+                -t ${PACKAGE_TYPE} \
+                --license "Apache Software License 2.0" \
+                --maintainer "${MAINTAINER}" \
+                --description "${DESCRIPTION}" \
+                --after-install config/after-install.sh \
+                --after-remove config/after-remove.sh \
+                --version ${VERSION} \
+                bin/${PACKAGE}=/opt/swarm/sbin/${PACKAGE} \
+                config/nftables-exporter.service=/opt/swarm/etc/${PACKAGE}/nftables-exporter.service
+            done
+        env:
+          PACKAGE: nftables-exporter
+          ARCH: any
+          MAINTAINER: Putilin Dmitry
+          DESCRIPTION: "Exporter for nft"
+          VERSION: ${{  github.ref_name  }}
+          CONFIG_PATH: config
+
+      - name: Prepare sha256 checksum's
+        run: |
+          export STRIPPED_VERSION="${VERSION#v}"
+          mv *.deb bin/${PACKAGE}-${STRIPPED_VERSION}-${ARCH}.deb
+          mv *.rpm bin/${PACKAGE}-${STRIPPED_VERSION}-${ARCH}.rpm
+          cd bin
+          for FILE in $(ls | grep -E "(deb|rpm)")
+          do
+            sha256sum "${FILE}" > "${FILE}_sha256sum"
+          done
+        env:
+          PACKAGE: nftables-exporter
+          ARCH: any
+          VERSION: ${{  github.ref_name  }}
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: "bin/*"
+
+      - uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          draft: True
+          artifacts: "bin/*"
