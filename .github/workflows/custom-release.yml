@@ -6,7 +6,7 @@ on:
 
 jobs:
   create-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     permissions:
       contents: write
 
@@ -43,7 +43,7 @@ jobs:
             done
         env:
           PACKAGE: nftables-exporter
-          ARCH: any
+          ARCH: all
           MAINTAINER: Putilin Dmitry
           DESCRIPTION: "Exporter for nft"
           VERSION: ${{  github.ref_name  }}
@@ -52,8 +52,8 @@ jobs:
       - name: Prepare sha256 checksum's
         run: |
           export STRIPPED_VERSION="${VERSION#v}"
-          mv *.deb bin/${PACKAGE}-${STRIPPED_VERSION}-${ARCH}.deb
-          mv *.rpm bin/${PACKAGE}-${STRIPPED_VERSION}-${ARCH}.rpm
+          mv *.deb bin/${PACKAGE}-${STRIPPED_VERSION}-any.deb
+          mv *.rpm bin/${PACKAGE}-${STRIPPED_VERSION}-any.rpm
           cd bin
           for FILE in $(ls | grep -E "(deb|rpm)")
           do
@@ -61,7 +61,6 @@ jobs:
           done
         env:
           PACKAGE: nftables-exporter
-          ARCH: any
           VERSION: ${{  github.ref_name  }}
 
       - uses: actions/checkout@v4
